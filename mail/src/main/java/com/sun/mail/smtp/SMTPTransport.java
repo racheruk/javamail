@@ -2166,7 +2166,7 @@ public class SMTPTransport extends Transport {
 				throws MessagingException {
 
         if (logger.isLoggable(Level.FINE))
-	    logger.fine("trying to connect to host \"" + host +
+	    logger.fine(Thread.currentThread().getName() + " - trying to connect to host \"" + host +
 				"\", port " + port + ", isSSL " + isSSL);
 
 	try {
