@@ -129,7 +129,7 @@ public class IMAPProtocol extends Protocol {
 			Properties props, boolean isSSL, MailLogger logger)
 			throws IOException, ProtocolException {
 	super(host, port, props, "mail." + name, isSSL, logger);
-
+		logger.fine(Thread.currentThread().getName() + " - Done with IMAPProtocol.super");
 	try {
 	    this.name = name;
 	    noauthdebug =
@@ -152,7 +152,9 @@ public class IMAPProtocol extends Protocol {
 				);
 
 	    connected = true;	// must be last statement in constructor
+		logger.fine(Thread.currentThread().getName() + " - IMAPProtocol Constructor before finally");
 	} finally {
+		logger.fine(Thread.currentThread().getName() + " - IMAPProtocol Constructor finally");
 	    /*
 	     * If we get here because an exception was thrown, we need
 	     * to disconnect to avoid leaving a connected socket that
@@ -463,7 +465,9 @@ public class IMAPProtocol extends Protocol {
      */
     @Override
     public void disconnect() {
+		logger.fine(Thread.currentThread().getName() + " - IMAPProtocol disconnect");
 	super.disconnect();
+		logger.fine(Thread.currentThread().getName() + " - IMAPProtocol disconnect super done");
 	authenticated = false;	// just in case
     }
 

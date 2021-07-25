@@ -396,7 +396,25 @@ public class IMAPStore extends Store
 		logger.config("dedicate a store connection");
 
 	}
-    }
+
+		@Override
+		public String toString() {
+			return "ConnectionPool{" +
+					"authenticatedConnections=" + authenticatedConnections +
+					", folders=" + folders +
+					", storeConnectionInUse=" + storeConnectionInUse +
+					", lastTimePruned=" + lastTimePruned +
+					", separateStoreConnection=" + separateStoreConnection +
+					", clientTimeoutInterval=" + clientTimeoutInterval +
+					", serverTimeoutInterval=" + serverTimeoutInterval +
+					", poolSize=" + poolSize +
+					", pruningInterval=" + pruningInterval +
+					", logger=" + logger +
+					", idleState=" + idleState +
+					", idleProtocol=" + idleProtocol +
+					'}';
+		}
+	}
  
     private final ConnectionPool pool;
 
@@ -414,10 +432,10 @@ public class IMAPStore extends Store
 	    if (r.isOK() || r.isNO() || r.isBAD() || r.isBYE())
 		handleResponseCode(r);
 	    if (r.isBYE())
-		logger.fine("IMAPStore non-store connection dead");
+		logger.fine(Thread.currentThread().getName() + " - IMAPStore non-store connection dead");
 	}
     };
- 
+
     /**
      * Constructor that takes a Session object and a URLName that
      * represents a specific IMAP server.
@@ -643,6 +661,7 @@ public class IMAPStore extends Store
 	}
 
 	pool = new ConnectionPool(name, logger, session);
+	logger.log(Level.INFO, Thread.currentThread().getName() + " - " + pool.toString());
     }
 
     /**
@@ -656,16 +675,16 @@ public class IMAPStore extends Store
      * suitable dummy password should be used.
      */
     @Override
-    protected synchronized boolean 
+    protected synchronized boolean
     protocolConnect(String host, int pport, String user, String password)
 		throws MessagingException {
-        
+
         IMAPProtocol protocol = null;
 
 	// check for non-null values of host, password, user
 	if (host == null || password == null || user == null) {
 	    if (logger.isLoggable(Level.FINE))
-		logger.fine("protocolConnect returning false" +
+		logger.fine(Thread.currentThread().getName() + " - protocolConnect returning false" +
 				", host=" + host +
 				", user=" + traceUser(user) +
 				", password=" + tracePassword(password));
@@ -678,13 +697,13 @@ public class IMAPStore extends Store
 	} else {
 	    port = PropUtil.getIntProperty(session.getProperties(),
 					"mail." + name + ".port", port);
-	} 
-	
+	}
+
 	// use the default if needed
 	if (port == -1) {
 	    port = defaultPort;
 	}
-	
+
 	try {
             boolean poolEmpty;
             synchronized (pool) {
@@ -693,11 +712,11 @@ public class IMAPStore extends Store
 
             if (poolEmpty) {
 		if (logger.isLoggable(Level.FINE))
-		    logger.fine("trying to connect to host \"" + host +
+		    logger.fine(Thread.currentThread().getName() + " - trying to connect to host \"" + host +
 				"\", port " + port + ", isSSL " + isSSL);
                 protocol = newIMAPProtocol(host, port);
 		if (logger.isLoggable(Level.FINE))
-		    logger.fine("protocolConnect login" +
+		    logger.fine(Thread.currentThread().getName() + " - protocolConnect login" +
 				", host=" + host +
 				", user=" + traceUser(user) +
 				", password=" + tracePassword(password));
@@ -740,7 +759,7 @@ public class IMAPStore extends Store
 	    throw new MailConnectException(scex);
 	} catch (IOException ioex) {
 	    throw new MessagingException(ioex.getMessage(), ioex);
-	} 
+	}
 
         return true;
     }
@@ -759,14 +778,14 @@ public class IMAPStore extends Store
      */
     protected IMAPProtocol newIMAPProtocol(String host, int port)
 				throws IOException, ProtocolException {
-	return new IMAPProtocol(name, host, port, 
+	return new IMAPProtocol(name, host, port,
 					    session.getProperties(),
 					    isSSL,
 					    logger
 					   );
     }
 
-    private void login(IMAPProtocol p, String u, String pw) 
+    private void login(IMAPProtocol p, String u, String pw)
 		throws ProtocolException {
 	// turn on TLS if it's been enabled or required and is supported
 	// and we're not already using SSL
@@ -776,7 +795,7 @@ public class IMAPStore extends Store
 		// if startTLS succeeds, refresh capabilities
 		p.capability();
 	    } else if (requireStartTLS) {
-		logger.fine("STARTTLS required but not supported by server");
+		logger.fine(Thread.currentThread().getName() + " - STARTTLS required but not supported by server");
 		throw new ProtocolException(
 		    "STARTTLS required but not supported by server");
 	    }
@@ -898,7 +917,7 @@ public class IMAPStore extends Store
 					dprop, m.equals("XOAUTH2"));
 		if (disabled) {
 		    if (logger.isLoggable(Level.FINE))
-			logger.fine("mechanism " + m +
+			logger.fine(Thread.currentThread().getName() + " - mechanism " + m +
 					" disabled by property: " + dprop);
 		    continue;
 		}
@@ -1001,13 +1020,13 @@ public class IMAPStore extends Store
      * Also store a reference to this folder in our list of
      * open folders.
      */
-    IMAPProtocol getProtocol(IMAPFolder folder) 
+    IMAPProtocol getProtocol(IMAPFolder folder)
 		throws MessagingException {
 	IMAPProtocol p = null;
 
 	// keep looking for a connection until we get a good one
 	while (p == null) {
- 
+
         // New authenticated protocol objects are either acquired
         // from the connection pool, or created when the pool is
         // empty or no connections are available. None are available
@@ -1022,7 +1041,7 @@ public class IMAPStore extends Store
                 (pool.authenticatedConnections.size() == 1 &&
                 (pool.separateStoreConnection || pool.storeConnectionInUse))) {
 
-		logger.fine("no connections in the pool, creating a new one");
+		logger.fine(Thread.currentThread().getName() + " - no connections in the pool, creating a new one");
                 try {
 		    if (forcePasswordRefresh)
 			refreshPassword();
@@ -1039,12 +1058,12 @@ public class IMAPStore extends Store
                         } catch (Exception ex2) { }
                     p = null;
                 }
-                 
+
                 if (p == null)
                     throw new MessagingException("connection failure");
             } else {
 		if (logger.isLoggable(Level.FINE))
-                    logger.fine("connection available -- size: " +
+                    logger.fine(Thread.currentThread().getName() + " - connection available -- size: " +
                         pool.authenticatedConnections.size());
 
                 // remove the available connection from the Authenticated queue
@@ -1121,7 +1140,7 @@ public class IMAPStore extends Store
         }
 
 	}
-	
+
 	return p;
     }
 
@@ -1150,10 +1169,10 @@ public class IMAPStore extends Store
         synchronized (pool) {
 	    waitIfIdle();
 
-            // If there's no authenticated connections available create a 
+            // If there's no authenticated connections available create a
             // new one and place it in the authenticated queue.
             if (pool.authenticatedConnections.isEmpty()) {
-		pool.logger.fine("getStoreProtocol() - no connections " +
+		pool.logger.fine(Thread.currentThread().getName() + " - getStoreProtocol() - no connections " +
                         "in the pool, creating a new one");
                 try {
 		    if (forcePasswordRefresh)
@@ -1169,18 +1188,18 @@ public class IMAPStore extends Store
                         } catch (Exception ex2) { }
                     p = null;
                 }
- 
+
                 if (p == null)
                     throw new ConnectionException(
 				"failed to create new store connection");
-             
+
 	        p.addResponseHandler(this);
                 pool.authenticatedConnections.addElement(p);
- 
+
             } else {
                 // Always use the first element in the Authenticated queue.
 		if (pool.logger.isLoggable(Level.FINE))
-                    pool.logger.fine("getStoreProtocol() - " +
+                    pool.logger.fine(Thread.currentThread().getName() + " - getStoreProtocol() - " +
                         "connection available -- size: " +
                         pool.authenticatedConnections.size());
                 p = pool.authenticatedConnections.firstElement();
@@ -1193,7 +1212,7 @@ public class IMAPStore extends Store
 		    login(p, user, password);
 		}
             }
- 
+
 	    if (pool.storeConnectionInUse) {
 		try {
 		    // someone else is using the connection, give up
@@ -1212,9 +1231,9 @@ public class IMAPStore extends Store
 	    } else {
 		pool.storeConnectionInUse = true;
 
-		pool.logger.fine("getStoreProtocol() -- storeConnectionInUse");
+		pool.logger.fine(Thread.currentThread().getName() + " - getStoreProtocol() -- storeConnectionInUse");
 	    }
- 
+
             timeoutConnections();
         }
 	}
@@ -1241,7 +1260,7 @@ public class IMAPStore extends Store
      */
     private void refreshPassword() {
 	if (logger.isLoggable(Level.FINE))
-	    logger.fine("refresh password, user: " + traceUser(user));
+	    logger.fine(Thread.currentThread().getName() + " - refresh password, user: " + traceUser(user));
 	InetAddress addr;
 	try {
 	    addr = InetAddress.getByName(host);
@@ -1274,20 +1293,20 @@ public class IMAPStore extends Store
         return pool.separateStoreConnection;
     }
 
-    /** 
+    /**
      * Return the connection pool logger.
-     */ 
+     */
     MailLogger getConnectionPoolLogger() {
-        return pool.logger; 
-    } 
- 
-    /** 
-     * Report whether message cache debugging is enabled. 
-     */ 
+        return pool.logger;
+    }
+
+    /**
+     * Report whether message cache debugging is enabled.
+     */
     boolean getMessageCacheDebug() {
-        return messageCacheDebug; 
-    } 
- 
+        return messageCacheDebug;
+    }
+
     /**
      * Report whether the connection pool is full.
      */
@@ -1295,8 +1314,8 @@ public class IMAPStore extends Store
 
         synchronized (pool) {
 	    if (pool.logger.isLoggable(Level.FINE))
-                pool.logger.fine("connection pool current size: " +
-                    pool.authenticatedConnections.size() + 
+                pool.logger.fine(Thread.currentThread().getName() + " - connection pool current size: " +
+                    pool.authenticatedConnections.size() +
                     "   pool size: " + pool.poolSize);
 
             return (pool.authenticatedConnections.size() >= pool.poolSize);
@@ -1365,7 +1384,7 @@ public class IMAPStore extends Store
 	    pool.storeConnectionInUse = false;
 	    pool.notifyAll();	// in case anyone waiting
 
-	    pool.logger.fine("releaseStoreProtocol()");
+	    pool.logger.fine(Thread.currentThread().getName() + " - releaseStoreProtocol()");
 
             timeoutConnections();
         }
@@ -1392,7 +1411,7 @@ public class IMAPStore extends Store
 	    pool.storeConnectionInUse = false;
 	    pool.notifyAll();	// in case anyone waiting
 
-	    pool.logger.fine("releaseFolderStoreProtocol()");
+	    pool.logger.fine(Thread.currentThread().getName() + " - releaseFolderStoreProtocol()");
 
             timeoutConnections();
         }
@@ -1400,7 +1419,7 @@ public class IMAPStore extends Store
 
     /**
      * Empty the connection pool.
-     */ 
+     */
     private void emptyConnectionPool(boolean force) {
 
         synchronized (pool) {
@@ -1419,49 +1438,49 @@ public class IMAPStore extends Store
 
             pool.authenticatedConnections.removeAllElements();
         }
-        
-	pool.logger.fine("removed all authenticated connections from pool");
+
+	pool.logger.fine(Thread.currentThread().getName() + " - removed all authenticated connections from pool");
     }
 
-    /**  
+    /**
      * Check to see if it's time to shrink the connection pool.
-     */  
+     */
     private void timeoutConnections() {
 
         synchronized (pool) {
 
             // If we've exceeded the pruning interval, look for stale
             // connections to logout.
-            if (System.currentTimeMillis() - pool.lastTimePruned > 
-                pool.pruningInterval && 
+            if (System.currentTimeMillis() - pool.lastTimePruned >
+                pool.pruningInterval &&
                 pool.authenticatedConnections.size() > 1) {
 
 		if (pool.logger.isLoggable(Level.FINE)) {
-                    pool.logger.fine("checking for connections to prune: " +
+                    pool.logger.fine(Thread.currentThread().getName() + " - checking for connections to prune: " +
                         (System.currentTimeMillis() - pool.lastTimePruned));
-                    pool.logger.fine("clientTimeoutInterval: " +
+                    pool.logger.fine(Thread.currentThread().getName() + " - clientTimeoutInterval: " +
                         pool.clientTimeoutInterval);
-                }   
- 
+                }
+
                 IMAPProtocol p;
- 
+
                 // Check the timestamp of the protocol objects in the pool and
                 // logout if the interval exceeds the client timeout value
                 // (leave the first connection).
-                for (int index = pool.authenticatedConnections.size() - 1; 
+                for (int index = pool.authenticatedConnections.size() - 1;
                      index > 0; index--) {
                     p = pool.authenticatedConnections.
                         elementAt(index);
 		    if (pool.logger.isLoggable(Level.FINE))
-                        pool.logger.fine("protocol last used: " +
+                        pool.logger.fine(Thread.currentThread().getName() + " - protocol last used: " +
                             (System.currentTimeMillis() - p.getTimestamp()));
                     if (System.currentTimeMillis() - p.getTimestamp() >
                         pool.clientTimeoutInterval) {
- 
+
 			pool.logger.fine(
 			    "authenticated connection timed out, " +
 			    "logging out the connection");
- 
+
                         p.removeResponseHandler(this);
                         pool.authenticatedConnections.removeElementAt(index);
 
@@ -1594,7 +1613,7 @@ public class IMAPStore extends Store
 	 *
 	 * (2) fail because the server returns NO or BAD, in which
 	 * 	case we ignore it since we can't really do anything.
-	 * (2) fail because a BYE response is obtained from the 
+	 * (2) fail because a BYE response is obtained from the
 	 *	server
 	 * (3) fail because the socket.write() to the server fails,
 	 *	in which case the iap.protocol() code converts the
@@ -1603,7 +1622,7 @@ public class IMAPStore extends Store
 	 * Thus, our BYE handler will take care of closing the Store
 	 * in case our connection is really gone.
 	 */
-   
+
         IMAPProtocol p = null;
 	try {
 	    p = getStoreProtocol();
@@ -1653,7 +1672,8 @@ public class IMAPStore extends Store
     private synchronized void cleanup() {
 	// if we're not connected, someone beat us to it
 	if (!super.isConnected()) {
-	    logger.fine("IMAPStore cleanup, not connected");
+		Thread.dumpStack();
+	    logger.fine(Thread.currentThread().getName() + " - IMAPStore cleanup, not connected");
 	    return;
 	}
 
@@ -1670,7 +1690,7 @@ public class IMAPStore extends Store
 	    connectionFailed = false;
 	}
 	if (logger.isLoggable(Level.FINE))
-	    logger.fine("IMAPStore cleanup, force " + force);
+	    logger.fine(Thread.currentThread().getName() + " - IMAPStore cleanup, force " + force);
 
 	if (!force || closeFoldersOnStoreFailure) {
 	    closeAllFolders(force);
@@ -1684,7 +1704,7 @@ public class IMAPStore extends Store
 	} catch (MessagingException mex) {
 	    // ignore it
 	}
-	logger.fine("IMAPStore cleanup done");
+	logger.fine(Thread.currentThread().getName() + " - IMAPStore cleanup done");
     }
 
     /**
@@ -1722,13 +1742,13 @@ public class IMAPStore extends Store
 
 		try {
 		    if (force) {
-			logger.fine("force folder to close");
+			logger.fine(Thread.currentThread().getName() + " - force folder to close");
 			// Don't want to wait for folder connection to timeout
 			// (if, for example, the server is down) so we close
 			// folders abruptly.
 			f.forceClose();
 		    } else {
-			logger.fine("close folder");
+			logger.fine(Thread.currentThread().getName() + " - close folder");
 			f.close(false);
 		    }
 		} catch (MessagingException mex) {
@@ -1742,7 +1762,7 @@ public class IMAPStore extends Store
     }
 
     /**
-     * Get the default folder, representing the root of this user's 
+     * Get the default folder, representing the root of this user's
      * namespace. Returns a closed DefaultFolder object.
      */
     @Override
@@ -1879,11 +1899,11 @@ public class IMAPStore extends Store
 	    try {
                 p = getStoreProtocol();
 		namespaces = p.namespace();
-	    } catch (BadCommandException bex) { 
+	    } catch (BadCommandException bex) {
 		// NAMESPACE not supported, ignore it
 	    } catch (ConnectionException cex) {
 		throw new StoreClosedException(this, cex.getMessage());
-	    } catch (ProtocolException pex) { 
+	    } catch (ProtocolException pex) {
 		throw new MessagingException(pex.getMessage(), pex);
 	    } finally {
 		releaseStoreProtocol(p);
@@ -1992,7 +2012,7 @@ public class IMAPStore extends Store
 	if (r.isOK() || r.isNO() || r.isBAD() || r.isBYE())
 	    handleResponseCode(r);
 	if (r.isBYE()) {
-	    logger.fine("IMAPStore connection dead");
+	    logger.fine(Thread.currentThread().getName() + " - IMAPStore connection dead");
 	    // Store's IMAP connection is dead, save the response so that
 	    // releaseStoreProtocol will cleanup later.
 	    synchronized (connectionFailedLock) {
